@@ -136,4 +136,50 @@ public class CheckInSurveyController {
 
         return map;
     }
+
+    @RequestMapping("/getScoreBreakdownForLatestSurvey")
+    public List<QuestionBreakdown> getScoreBreakdownForLatestSurvey() {
+        List<QuestionBreakdown> questions = new ArrayList<>();
+        Survey survey = getCheckInSurveyForCurrentDate();
+
+        if (survey == null) {
+            return questions;
+        }
+
+        for (Question question : survey.questions) {
+            QuestionBreakdown breakdown = new QuestionBreakdown();
+            breakdown.question = question;
+            breakdown.scoreBreakdown = new HashMap<>();
+            questions.add(breakdown);
+        }
+
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+        String today = formatter.format(new Date());
+
+        HashMap<String, Survey> map = new HashMap<>();
+
+        for (DataSnapshot date : this.answerListSnapshot) {
+            if (date.getKey().equals(today.replace("/", ""))) {
+                for (DataSnapshot employee : date.getChildren()) {
+                    for (DataSnapshot answer : employee.getChildren()) {
+                        map.put(employee.getKey(), answer.getValue(Survey.class));
+                    }
+                }
+            }
+        }
+
+        for (QuestionBreakdown qb : questions) {
+            for (Map.Entry<String, Survey> entry : map.entrySet()) {
+                Survey s = entry.getValue();
+                Question question = s.questions.stream().filter(x -> x.description.equals(qb.question.description))
+                        .findFirst().get();
+                QuestionOption option = question.options.stream()
+                        .filter(x -> x.isSelected != null && x.isSelected == true).findFirst().get();
+                qb.scoreBreakdown.put(entry.getKey(), option.optionScore);
+            }
+        }
+
+        return questions;
+    }
+
 }
